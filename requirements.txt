@@ -1,0 +1,29 @@
+# Modern RAG environment (Python 3.12+ compatible)
+# Core LangChain components (latest stable)
+langchain
+langchain-community
+langchain-core
+
+# Vector store and embeddings (you already have faiss-cpu 1.12.0)
+sentence-transformers
+transformers
+
+# Document processing  
+pdfplumber
+python-docx
+docx2txt
+
+# LLM integration
+ollama
+
+# Web UI
+streamlit
+
+# Core utilities
+numpy
+pandas
+python-dotenv
+
+# Evaluation metrics
+rouge-score
+datasets
