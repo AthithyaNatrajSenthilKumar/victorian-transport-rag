@@ -1,6 +1,11 @@
 """
 Streamlit Web UI for Victorian Public Transport RAG System
+
+This application provides a web interface for querying information about Victorian public transport
+using Retrieval-Augmented Generation (RAG). It combines document retrieval with language models
+to provide accurate, source-backed answers to user queries.
 """
+
 import os
 import sys
 import time
@@ -8,7 +13,10 @@ from typing import Dict, Any
 
 import streamlit as st
 
+print("Initializing Victorian Transport RAG System...")
+
 # ---------------- Session state ----------------
+print("Setting up session state...")
 if "history" not in st.session_state:
     # [{"q": str, "answer": str, "sources": list, "latency_ms": float}]
     st.session_state.history = []
@@ -22,19 +30,43 @@ from run_rag import VictorianTransportRAG  # noqa: E402
 # ---------------- RAG init ----------------
 @st.cache_resource
 def initialize_rag_system():
+    """
+    Initialize the RAG system with document processing and QA chain setup.
+    
+    Returns:
+        VictorianTransportRAG: Initialized RAG system instance if successful, None otherwise.
+    """
+    print("Initializing RAG system...")
     rag = VictorianTransportRAG()
+    
+    print("Loading and processing documents...")
     if rag.load_and_process_documents():
+        print("Setting up QA chain...")
         rag.setup_qa_chain()
+        print("RAG system initialization complete!")
         return rag
+    
+    print("Failed to initialize RAG system - document loading failed")
     return None
 
 
 # ---------------- Helpers ----------------
 def format_sources(sources) -> str:
     """
-    Format source documents for display.
-    Accepts either dicts or LangChain Document objects.
+    Format source documents for display in the web interface.
+    
+    Args:
+        sources: List of source documents, either as dicts or LangChain Document objects
+        
+    Returns:
+        str: Formatted string containing source information and content previews
+        
+    Note:
+        - Handles both dictionary and LangChain Document formats
+        - Truncates previews to 600 characters for readability
+        - Includes source name, part number, and content preview
     """
+    print(f"Formatting {len(sources)} source documents for display...")
     formatted = []
     for i, s in enumerate(sources, 1):
         if hasattr(s, "page_content"):  # Document
@@ -61,6 +93,18 @@ def format_sources(sources) -> str:
 
 # ---------------- App ----------------
 def main():
+    """
+    Main application function that sets up the Streamlit interface and handles user interactions.
+    
+    This function:
+    - Configures the page layout and appearance
+    - Initializes the RAG system
+    - Manages the conversation history
+    - Handles user input and question processing
+    - Displays results and source documents
+    """
+    print("Starting main application...")
+    
     st.set_page_config(
         page_title="Victorian Transport FAQ Assistant",
         page_icon="🚊",
@@ -154,20 +198,26 @@ def main():
         else:
             with st.spinner("Searching for answer..."):
                 try:
+                    print(f"Processing question: {q.strip()}")
                     t0 = time.perf_counter()
                     response = rag_system.ask_question(q.strip())
                     t1 = time.perf_counter()
+                    latency = (t1 - t0) * 1000
+                    
+                    print(f"Question processed successfully in {latency:.2f}ms")
+                    print(f"Retrieved {len(response.get('source_documents', []))} source documents")
 
                     st.session_state.history.append(
                         {
                             "q": q.strip(),
                             "answer": response.get("answer", ""),
                             "sources": response.get("source_documents", []),
-                            "latency_ms": (t1 - t0) * 1000,
+                            "latency_ms": latency,
                         }
                     )
                     st.rerun()
                 except Exception as e:
+                    print(f"Error occurred while processing question: {str(e)}")
                     st.error(f"❌ Error processing question: {str(e)}")
                     st.info("Please try rephrasing your question or check if the Ollama service is running.")
 
@@ -188,4 +238,8 @@ def main():
 
 
 if __name__ == "__main__":
+    print("=" * 50)
+    print("Victorian Transport RAG System - Application Start")
+    print("=" * 50)
     main()
+    print("Application terminated")
