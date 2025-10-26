@@ -323,9 +323,9 @@ git push origin feature-branch
 
 This project is for educational purposes (RMIT WIL). Ensure compliance with document licensing when using official transport documents.
 
-**Built by**: [Your Team Name]  
-**Date**: September 2025  
-**Course**: Case Study in Data Science, RMIT University
+**Built by**: TEAM 48- POWERHOUSE  
+**Date**: October 2025  
+**Course**: Case Study in Data Science(COSC2669), RMIT University
 
 ---
 
