@@ -5,7 +5,7 @@ import os
 from typing import List, Dict, Any
 import pdfplumber
 import docx2txt
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 
 class DocumentLoader:

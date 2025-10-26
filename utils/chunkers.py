@@ -2,9 +2,8 @@
 Document chunking utilities for RAG pipeline
 """
 from typing import List
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
-
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
 
 class DocumentChunker:
     """Handles document chunking with various strategies"""

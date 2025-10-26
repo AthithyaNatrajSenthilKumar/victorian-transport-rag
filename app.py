@@ -1,154 +1,190 @@
 """
 Streamlit Web UI for Victorian Public Transport RAG System
 """
-import streamlit as st
 import os
 import sys
+import time
 from typing import Dict, Any
 
-# Add utils to path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
+import streamlit as st
 
-from run_rag import VictorianTransportRAG
+# ---------------- Session state ----------------
+if "history" not in st.session_state:
+    # [{"q": str, "answer": str, "sources": list, "latency_ms": float}]
+    st.session_state.history = []
+
+# utils path
+sys.path.append(os.path.join(os.path.dirname(__file__), "utils"))
+
+from run_rag import VictorianTransportRAG  # noqa: E402
 
 
+# ---------------- RAG init ----------------
 @st.cache_resource
 def initialize_rag_system():
-    """Initialize and cache the RAG system"""
     rag = VictorianTransportRAG()
-    
-    # Load and process documents
     if rag.load_and_process_documents():
         rag.setup_qa_chain()
         return rag
-    else:
-        return None
+    return None
 
 
-def format_sources(sources):
-    """Format source documents for display"""
+# ---------------- Helpers ----------------
+def format_sources(sources) -> str:
+    """
+    Format source documents for display.
+    Accepts either dicts or LangChain Document objects.
+    """
     formatted = []
-    for i, source in enumerate(sources, 1):
-        formatted.append(f"**Source {i}**: {source['source']} (Part {source['chunk_id'] + 1})")
-        formatted.append(f"*Preview*: {source['content']}")
+    for i, s in enumerate(sources, 1):
+        if hasattr(s, "page_content"):  # Document
+            content = getattr(s, "page_content", "")
+            meta = getattr(s, "metadata", {}) or {}
+            source_name = meta.get("source") or meta.get("file_path") or meta.get("path") or "Unknown source"
+            chunk_idx = meta.get("chunk_id")
+        else:  # dict
+            content = s.get("content") or s.get("page_content") or ""
+            meta = s.get("metadata", {}) or {}
+            source_name = s.get("source") or meta.get("source") or meta.get("file_path") or "Unknown source"
+            chunk_idx = s.get("chunk_id") or meta.get("chunk_id")
+
+        part_txt = f"(Part {int(chunk_idx) + 1})" if chunk_idx is not None else ""
+        formatted.append(f"**Source {i}**: {source_name} {part_txt}".strip())
+
+        preview = (content or "").strip()
+        if len(preview) > 600:
+            preview = preview[:600].rstrip() + " …"
+        formatted.append(f"*Preview*: {preview}")
         formatted.append("---")
     return "\n\n".join(formatted)
 
 
+# ---------------- App ----------------
 def main():
     st.set_page_config(
         page_title="Victorian Transport FAQ Assistant",
         page_icon="🚊",
-        layout="wide"
+        layout="wide",
     )
-    
-    # Header
+
     st.title("🚊 Victorian Public Transport FAQ Assistant")
     st.markdown("*Powered by RAG (Retrieval-Augmented Generation)*")
-    
-    # Sidebar with information
+
+    # Sidebar
     with st.sidebar:
         st.header("About")
-        st.write("""
-        This AI assistant helps answer questions about Victorian public transport using official documents.
-        
-        **Features:**
-        - 🎫 Fare information
-        - 🗺️ Zone details  
-        - ♿ Accessibility info
-        - 📋 Travel rules & penalties
-        - 🚌 Service information
-        """)
-        
+        st.write(
+            """
+            This AI assistant helps answer questions about Victorian public transport using official documents.
+
+            **Features:**
+            - 🎫 Fare information
+            - 🗺️ Zone details
+            - ♿ Accessibility info
+            - 📋 Travel rules & penalties
+            - 🚌 Service information
+            """
+        )
+
+        st.header("Session")
+        if st.button("🧹 Clear conversation"):
+            st.session_state.history = []
+            st.rerun()
+
         st.header("Sample Questions")
         sample_questions = [
             "What are the penalty fares?",
-            "How much is a Zone 1+2 daily ticket?", 
+            "How much is a Zone 1+2 daily ticket?",
             "What accessibility features are available?",
             "Can I use myki on regional trains?",
-            "What are peak travel times?"
+            "What are peak travel times?",
         ]
-        
         for q in sample_questions:
             if st.button(f"💭 {q}", key=f"sample_{hash(q)}"):
                 st.session_state.sample_question = q
-    
-    # Initialize RAG system
+
+    # Init RAG
     with st.spinner("Loading knowledge base..."):
         rag_system = initialize_rag_system()
-    
+
     if rag_system is None:
         st.error("❌ Failed to load documents. Please ensure PDF/DOCX files are in the 'data' folder.")
         st.info("📁 Expected folder structure: `data/` containing your transport documents")
         return
-    
+
     st.success("✅ Knowledge base loaded successfully!")
-    
-    # Main interface
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        # Question input
-        question = st.text_input(
-            "Ask your question about Victorian public transport:",
+
+    # Conversation history
+    if st.session_state.history:
+        st.subheader("🧠 Conversation")
+        for i, turn in enumerate(st.session_state.history, start=1):
+            st.markdown(f"**Q{i}.** {turn['q']}")
+            st.write(turn["answer"])
+            if "latency_ms" in turn:
+                st.caption(f"⏱ {turn['latency_ms']:.0f} ms")
+            with st.expander(f"📚 View Sources for Q{i}", expanded=False):
+                if turn.get("sources"):
+                    st.markdown("**Retrieved Information:**")
+                    st.markdown(format_sources(turn["sources"]))
+                else:
+                    st.write("No source documents retrieved.")
+            st.markdown("---")
+
+    # Ask next question (bottom)
+    st.markdown("### Ask your question about Victorian public transport:")
+
+    with st.form("ask_form", clear_on_submit=True):
+        q = st.text_input(
+            label="",
             placeholder="e.g., What are the current myki fares?",
-            value=st.session_state.get('sample_question', '')
+            value=st.session_state.get("sample_question", ""),
         )
-        
-        # Clear sample question after use
-        if 'sample_question' in st.session_state:
-            del st.session_state.sample_question
-    
-    with col2:
-        ask_button = st.button("🔍 Ask Question", type="primary", use_container_width=True)
-    
+        submit = st.form_submit_button(
+            "🔎 Ask Question", use_container_width=True, key="ask_btn_bottom"
+        )
+
+    # Clear the sample question only after successful use
+    if "sample_question" in st.session_state and submit and q.strip():
+        del st.session_state.sample_question
+
     # Process question
-    if ask_button and question.strip():
-        with st.spinner("Searching for answer..."):
-            try:
-                response = rag_system.ask_question(question.strip())
-                
-                # Display answer
-                st.subheader("📝 Answer")
-                st.write(response['answer'])
-                
-                # Display sources in expandable section
-                with st.expander("📚 View Sources", expanded=False):
-                    if response['source_documents']:
-                        st.markdown("**Retrieved Information:**")
-                        sources_text = format_sources(response['source_documents'])
-                        st.markdown(sources_text)
-                    else:
-                        st.write("No source documents retrieved.")
-                
-                # Feedback section
-                st.subheader("📊 Was this helpful?")
-                col_yes, col_no = st.columns(2)
-                with col_yes:
-                    if st.button("👍 Yes", key="feedback_yes"):
-                        st.success("Thank you for your feedback!")
-                with col_no:
-                    if st.button("👎 No", key="feedback_no"):
-                        st.info("We'll work on improving our responses!")
-                        
-            except Exception as e:
-                st.error(f"❌ Error processing question: {str(e)}")
-                st.info("Please try rephrasing your question or check if the Ollama service is running.")
-    
-    elif ask_button:
-        st.warning("⚠️ Please enter a question first.")
-    
+    if submit:
+        if not q.strip():
+            st.warning("⚠️ Please enter a question first.")
+        else:
+            with st.spinner("Searching for answer..."):
+                try:
+                    t0 = time.perf_counter()
+                    response = rag_system.ask_question(q.strip())
+                    t1 = time.perf_counter()
+
+                    st.session_state.history.append(
+                        {
+                            "q": q.strip(),
+                            "answer": response.get("answer", ""),
+                            "sources": response.get("source_documents", []),
+                            "latency_ms": (t1 - t0) * 1000,
+                        }
+                    )
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error processing question: {str(e)}")
+                    st.info("Please try rephrasing your question or check if the Ollama service is running.")
+
     # Footer
     st.markdown("---")
-    st.markdown("""
-    <div style='text-align: center; color: #666;'>
-        <small>
-        Built with Streamlit, LangChain, and Ollama | 
-        Using sentence-transformers for embeddings | 
-        FAISS for vector search
-        </small>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style='text-align: center; color: #666;'>
+            <small>
+            Built with Streamlit, LangChain, and Ollama |
+            Using sentence-transformers for embeddings |
+            FAISS for vector search
+            </small>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":
