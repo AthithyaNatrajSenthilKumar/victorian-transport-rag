@@ -1,5 +1,19 @@
 """
 Evaluation script for RAG system performance
+
+This script evaluates the effectiveness of the Victorian Transport RAG system by:
+1. Processing a set of predefined FAQ questions
+2. Measuring response quality and accuracy
+3. Analyzing source document retrieval
+4. Calculating performance metrics
+5. Generating detailed evaluation reports
+
+Key Metrics Evaluated:
+- Response accuracy and completeness
+- Source document relevance
+- Processing time and system efficiency
+- Answer confidence levels
+- Category-wise performance analysis
 """
 import json
 import os
@@ -16,7 +30,16 @@ from run_rag import VictorianTransportRAG
 
 
 class RAGEvaluator:
-    """Evaluate RAG system performance on FAQ questions"""
+    """
+    Evaluate RAG system performance on FAQ questions
+    
+    This class handles comprehensive evaluation of the RAG system by:
+    - Processing predefined test questions from JSON
+    - Measuring response quality and timing
+    - Analyzing source document retrieval effectiveness
+    - Calculating performance metrics across categories
+    - Generating detailed evaluation reports
+    """
     
     def __init__(self, rag_system: VictorianTransportRAG, faq_file: str = "examples/faq_samples.json"):
         self.rag_system = rag_system
@@ -24,7 +47,16 @@ class RAGEvaluator:
         self.results = []
     
     def load_test_questions(self) -> List[Dict]:
-        """Load test questions from JSON file"""
+        """
+        Load test questions from JSON file
+        
+        Returns:
+            List[Dict]: List of question dictionaries, each containing:
+                - id: Unique question identifier
+                - category: Question category
+                - question: The actual question text
+                - difficulty: Optional difficulty rating
+        """
         if not os.path.exists(self.faq_file):
             print(f"FAQ file not found: {self.faq_file}")
             return []
@@ -35,7 +67,18 @@ class RAGEvaluator:
         return data.get('faq_samples', [])
     
     def evaluate_single_question(self, question_data: Dict) -> Dict[str, Any]:
-        """Evaluate a single question"""
+        """
+        Evaluate a single question through the RAG system
+        
+        Args:
+            question_data: Dictionary containing question details and metadata
+        
+        Returns:
+            Dict containing evaluation metrics:
+            - Basic: response time, answer length, source count
+            - Quality: confidence, source diversity
+            - Metadata: timestamp, question category, difficulty
+        """
         question = question_data['question']
         
         print(f"Evaluating: {question}")
@@ -123,7 +166,21 @@ class RAGEvaluator:
         return df
     
     def calculate_summary_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """Calculate summary metrics from evaluation results"""
+        """
+        Calculate summary metrics from evaluation results
+        
+        Processes evaluation data to generate comprehensive metrics including:
+        - Coverage: success rate, answer coverage
+        - Quality: confidence rate, source retrieval
+        - Performance: response times, answer lengths
+        - Analysis: category and difficulty breakdowns
+        
+        Args:
+            df: DataFrame containing raw evaluation results
+        
+        Returns:
+            Dictionary of calculated metrics and statistical summaries
+        """
         if df.empty:
             return {}
         
@@ -195,7 +252,14 @@ class RAGEvaluator:
                 print(f"  {difficulty.title()}: {score:.1f}%")
     
     def save_results(self, df: pd.DataFrame, filename: str = None):
-        """Save evaluation results to CSV"""
+        """
+        Save evaluation results to CSV file
+        
+        Args:
+            df: DataFrame containing evaluation results
+            filename: Optional custom filename, defaults to timestamp-based name
+                     Format: evaluation_results_YYYYMMDD_HHMMSS.csv
+        """
         if filename is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"evaluation_results_{timestamp}.csv"
@@ -205,7 +269,17 @@ class RAGEvaluator:
 
 
 def main():
-    """Main evaluation function"""
+    """
+    Main evaluation function
+    
+    Orchestrates the complete evaluation process:
+    1. Initializes the RAG system
+    2. Loads and processes required documents
+    3. Runs evaluation on test questions
+    4. Generates performance metrics
+    5. Saves results to file
+    6. Displays sample outputs
+    """
     print("RAG System Evaluation")
     print("====================")
     
